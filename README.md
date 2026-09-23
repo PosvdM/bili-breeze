@@ -10,16 +10,14 @@
 | --- | --- | --- |
 | <img src="docs/screenshots/filter.png" width="260" alt="过滤选项卡"> | <img src="docs/screenshots/lists.png" width="260" alt="名单选项卡"> | <img src="docs/screenshots/api.png" width="260" alt="API 选项卡"> |
 
-名单中的名字和 UID 为演示数据。
-
 ## 安装与更新
 
 1. 从 [发行版](https://github.com/PosvdM/bili-breeze/releases/latest) 下载 `bili-breeze.zip`，无需解压。
 2. 打开 `chrome://extensions` 或 `edge://extensions`，开启「开发者模式」。
 3. 将 ZIP 安装包直接拖入扩展管理页，按提示完成安装。
-4. 打开扩展的「API」选项卡，保存服务地址、模型和密钥，再刷新 B 站页面。
+4. 打开扩展的「API」选项卡，保存服务地址、模型和密钥。
 
-更新时下载新版 ZIP，拖入扩展管理页完成更新，再刷新 B 站页面。
+更新时下载新版 ZIP，拖入扩展管理页完成更新。
 
 ## 选择要折叠的内容
 
