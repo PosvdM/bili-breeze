@@ -4,6 +4,14 @@
 
 按你的偏好折叠 B 站动态和视频置顶评论中的广告、抽奖、活动宣传与招聘。支持 Chrome 和 Edge，需要配置自己的 API 密钥。
 
+## 界面预览
+
+| 过滤 | 名单 | API |
+| --- | --- | --- |
+| <img src="docs/screenshots/filter.png" width="260" alt="过滤选项卡"> | <img src="docs/screenshots/lists.png" width="260" alt="名单选项卡"> | <img src="docs/screenshots/api.png" width="260" alt="API 选项卡"> |
+
+名单中的名字和 UID 为演示数据。
+
 ## 安装与更新
 
 1. 从 [发行版](https://github.com/PosvdM/bili-breeze/releases/latest) 下载 `bili-breeze-1.0.0.zip`，无需解压。
