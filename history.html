@@ -1,0 +1,7 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>哔哩清风 · 记录与统计</title><link rel="stylesheet" href="popup.css"><link rel="stylesheet" href="history.css"></head><body>
+<header class="brand"><img src="icons/128.png" width="48" height="48" alt=""><h1>记录与统计</h1></header>
+<p class="muted">统计来自本机检测记录，同一条内容只计一次。置顶评论归入视频 UP 主名下。</p>
+<div id="summary" class="summary"></div>
+<section><h2>UP 主广告统计</h2><p class="muted">按识别为广告的条数排序。占比仅代表已检测内容，模型判断可能有误。</p><div class="table-wrap"><table><thead><tr><th>UP 主</th><th>已检测</th><th>广告</th><th>占比</th></tr></thead><tbody id="ranking"></tbody></table></div></section>
+<section><h2>检测日志</h2><div class="filters"><input id="search" placeholder="搜索 UP 主或内容" aria-label="搜索"><select id="scope" aria-label="记录类型"><option value="filtered">已折叠</option><option value="giveaway">抽奖</option><option value="event">活动宣传</option><option value="recruitment">招聘</option><option value="ads">只看广告</option><option value="all">全部记录</option><option value="dynamic">动态广告</option><option value="pinned">置顶评论广告</option></select></div><p class="muted">最多保存 5,000 条记录，仅存本机。</p><div id="logs"></div><button id="more" type="button">显示更多</button></section>
+<script src="history.js"></script></body></html>

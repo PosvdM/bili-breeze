@@ -1,0 +1,12 @@
+{
+  "name": "bili-breeze",
+  "version": "1.0.0",
+  "private": true,
+  "description": "哔哩清风：B站动态与置顶评论广告识别",
+  "scripts": {
+    "test": "node tests/background.cjs && node tests/browser.cjs && node tests/popup.cjs && node tests/cache.cjs && node tests/categories.cjs && node tests/identity.cjs && node tests/ratio.cjs && node tests/giveaway.cjs && node tests/space-policy.cjs && node tests/space-buttons.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

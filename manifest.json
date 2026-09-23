@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "哔哩清风 · BiliBreeze",
+  "version": "1.0.0",
+  "description": "识别 B 站动态和视频置顶评论中的广告、抽奖、活动宣传与招聘，按类别折叠。支持自定义 API、白名单和谨慎过滤。",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api.typesafe.ai/*",
+    "https://api.bilibili.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://t.bilibili.com/*",
+        "https://space.bilibili.com/*",
+        "https://www.bilibili.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "哔哩清风"
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "version_name": "1.0",
+  "optional_host_permissions": [
+    "https://*/*"
+  ]
+}
