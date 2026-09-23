@@ -1,4 +1,4 @@
-<p align="center"><img src="branding/brand.png" width="120" alt="哔哩清风标志"></p>
+<p align="center"><img src="branding/brand.png" width="200" alt="哔哩清风标志"></p>
 
 # 哔哩清风 · BiliBreeze
 
