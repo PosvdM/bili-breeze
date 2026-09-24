@@ -23,7 +23,7 @@ function send(message, from=sender){return new Promise(resolve=>{if(!handler(mes
 function set(values){Object.assign(store,values);change(values,'local');}
 const state = text=>({kind:'pinned',text,title:'背景'});
 (async()=>{
-  assert.equal((await send({type:'settings'})).data.configured,true);
+  assert.equal((await send({type:'settings'})).data.configured,false,'no key: pages stay untouched');
   assert.equal((await send({type:'detect',state:state('test')})).ok,false);assert.equal(fetchCount,0);
   set({apiKey:'own-test-key'});
   const pub = await send({type:'settings'});assert.equal(pub.data.apiKey,undefined);assert.equal(pub.data.configured,true);
@@ -35,13 +35,19 @@ const state = text=>({kind:'pinned',text,title:'背景'});
   assert.equal(await send({type:'detect',state:state('evil')},{id:'test',url:'https://evil.example/'}),null);
   set({foldCategories:['ad']});responseProb='invalid';protocol='jev';
   assert.equal((await send({type:'detect',state:state('invalid')})).ok,false);
+  responseProb=.91;
+  assert.equal((await send({type:'detect',state:state('after-invalid')})).ok,true,'malformed answer does not pause requests');
+  status=503;
+  assert.equal((await send({type:'detect',state:state('unavailable')})).ok,false);
   const count=fetchCount;
   await send({type:'detect',state:state('cooldown')});assert.equal(fetchCount,count);
-  set({foldCategories:['ad']});responseProb=.91;status=401;
+  set({whitelist:[null,{uid:'1'}]});status=200;
+  assert.equal((await send({type:'detect',state:state('null-entry')})).ok,true,'null list entry does not break matching');
+  set({foldCategories:['ad']});status=401;
   assert.match((await send({type:'detect',state:state('auth')})).error,/Key/);
   set({enabled:false});status=200;
   assert.equal((await send({type:'detect',state:state('disabled')})).ok,false);
-  assert.equal(fetchCount,count+1);
+  assert.equal(fetchCount,count+2);
   set({enabled:true,provider:'custom',apiUrl:'https://custom.test/v1/chat/completions',apiModel:'my-model',apiProtocol:'openai'});
   expectedUrl='https://custom.test/v1/chat/completions';expectedModel='my-model';protocol='openai';
   let custom=await send({type:'detect',state:state('custom')});assert.equal(custom.ok,true);assert.equal(custom.data.kind,'ad');
