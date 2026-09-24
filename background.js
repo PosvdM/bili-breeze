@@ -51,7 +51,8 @@ async function logDetection(raw, result) {
       preview: String(raw.text || "").slice(0, 160), firstSeen: old?.firstSeen || Date.now(), lastSeen: Date.now()};
     const qualifies=authorRatio(filterHistory,authorId,s);
     const listed=s.enhancedList.some(v=>v&&typeof v==='object'?String(v.uid)===authorId:v==='uid:'+authorId||v===author);
-    if(qualifies&&!listed){
+    // Only API-classified items may trigger it; whitelisted authors are never auto-added.
+    if(qualifies&&!listed&&!result.rule){
       s.enhancedList=[...s.enhancedList,{uid:authorId,name:author,source:'auto',addedAt:Date.now(),sample:qualifies}];
       // storage.onChanged notifies tabs with authorPolicyChanged.
       await chrome.storage.local.set({enhancedList:s.enhancedList});
@@ -279,10 +280,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if (message.type === "settings") return publicSettings();
     if (message.type === "detect" && page) {
       const result = {...await detect(message.state)};
-      const config = await settings();
-      await historyWrites.catch(()=>{});
-      const {filterHistory={}}=await chrome.storage.local.get({filterHistory:{}});
-      applyPolicy(result,message.state,config,filterHistory);
+      // logDetection applies the author policy against the updated history.
       await logDetection(message.state, result);
       return result;
     }
