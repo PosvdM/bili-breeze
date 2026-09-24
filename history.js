@@ -15,7 +15,7 @@ function render(){
  const filtered=records.filter(r=>(scope==='all'||scope==='filtered'&&r.action==='折叠'||scope==='giveaway'&&(r.categories||[r.kind]).includes('giveaway')||scope==='event'&&(r.categories||[r.kind]).includes('event')||scope==='recruitment'&&(r.categories||[r.kind]).includes('recruitment')||ad(r)&&(scope==='ads'||r.type===scope))&&(!q||(r.author+' '+r.preview).toLowerCase().includes(q)));
  $('logs').replaceChildren();
  for(const r of filtered.slice(0,limit)){
-  const el=node('article','','entry');el.append(node('b',r.author+' · '+(r.rule==='blacklist'?'黑名单':({ad:'广告',giveaway:'抽奖',recruitment:'招聘',event:'活动宣传',organic:'普通内容'}[r.kind]||'其他'))+' · '+r.action));
+  const el=node('article','','entry');el.append(node('b',r.author+' · '+({ad:'广告',giveaway:'抽奖',recruitment:'招聘',event:'活动宣传',organic:'普通内容'}[r.kind]||'其他')+' · '+r.action));
   if(r.giveawayType==='incidental')el.append(node('p','附带抽奖','meta'));
   if(r.giveawayType==='uncertain')el.append(node('p','抽奖类型不确定，保留显示','meta'));
   if(r.cautionStatus==='missing_uid')el.append(node('p','未获取 UP 主 UID，暂不能计算自动谨慎模式。','meta'));
