@@ -12,12 +12,14 @@
 
 ## 安装与更新
 
-1. 从 [发行版](https://github.com/PosvdM/bili-breeze/releases/latest) 下载 `bili-breeze.zip`，无需解压。
+1. 从 [发行版](https://github.com/PosvdM/bili-breeze/releases/latest) 下载 `bili-breeze-版本号.zip`，无需解压。
 2. 打开 `chrome://extensions` 或 `edge://extensions`，开启「开发者模式」。
 3. 将 ZIP 安装包直接拖入扩展管理页，按提示完成安装。
 4. 打开扩展的「API」选项卡，保存服务地址、模型和密钥。
 
-更新时下载新版 ZIP，拖入扩展管理页完成更新。
+更新时下载新版 ZIP，拖入扩展管理页，会覆盖原扩展，设置、名单和记录保留。完成后刷新 B 站页面。
+
+从 1.0 或 1.0.1 升级时，旧版本的扩展 ID 不固定，新版会作为另一个扩展安装，需要重新填写 API 设置和名单，然后移除旧版本。1.0.2 起扩展 ID 固定，之后的更新不再需要这样做。
 
 ## 选择要折叠的内容
 
