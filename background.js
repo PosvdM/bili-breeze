@@ -45,7 +45,6 @@ async function logDetection(raw, result) {
   historyWrites = historyWrites.catch(() => {}).then(async () => {
     const {filterHistory = {}} = await chrome.storage.local.get({filterHistory: {}});
     const s = await settings();
-    let added=false;
     const old = filterHistory[id];
     filterHistory[id] = {classificationVersion:"events-v5", id, author, authorId, url, type: raw.kind, giveawayType:result.giveawayType, prob: result.prob, kind: result.kind, categories: result.categories || [result.kind],
       action: result.fold ? "折叠" : "放行", rule: result.rule || "category", enhanced: !!result.enhanced, adThreshold:result.adThreshold, autoCautious:result.autoCautious,
@@ -54,17 +53,13 @@ async function logDetection(raw, result) {
     const listed=s.enhancedList.some(v=>v&&typeof v==='object'?String(v.uid)===authorId:v==='uid:'+authorId||v===author);
     if(qualifies&&!listed){
       s.enhancedList=[...s.enhancedList,{uid:authorId,name:author,source:'auto',addedAt:Date.now(),sample:qualifies}];
-      await chrome.storage.local.set({enhancedList:s.enhancedList});added=true;
+      // storage.onChanged notifies tabs with authorPolicyChanged.
+      await chrome.storage.local.set({enhancedList:s.enhancedList});
     }
     applyPolicy(result,raw,s,filterHistory);
     Object.assign(filterHistory[id],{action:result.fold?'折叠':'放行',kind:result.kind,categories:result.categories||[result.kind],enhanced:!!result.enhanced,adThreshold:result.adThreshold,autoCautious:result.autoCautious,cautionStatus:result.cautionStatus,cautionSample:result.cautionSample});
-    const changed=added;
     const entries = Object.values(filterHistory).sort((a,b) => b.lastSeen-a.lastSeen).slice(0,5000);
     await chrome.storage.local.set({filterHistory: Object.fromEntries(entries.map(e=>[e.id,e]))});
-    if(changed){
-      const tabs=await chrome.tabs.query({});
-      for(const tab of tabs)chrome.tabs.sendMessage(tab.id,{type:'authorPolicyChanged',uid:authorId}).catch(()=>{});
-    }
   });
   await historyWrites.catch(() => {});
 }
@@ -103,7 +98,8 @@ async function settings() {
 }
 async function publicSettings() {
   const {apiKey, apiUrl, apiModel, apiProtocol, provider, ...rest} = await settings();
-  return {...rest, configured: !!apiKey.trim() || rest.foldCategories.includes("giveaway")};
+  // Every category needs the API, including giveaway primary/incidental checks.
+  return {...rest, configured: !!apiKey.trim()};
 }
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !Object.keys(DEFAULTS).some(k => k in changes)) return;
@@ -175,8 +171,9 @@ async function callJev(state, key, config = DEFAULTS) {
       headers: {"Content-Type": "application/json", Authorization: `Bearer ${key}`},
       body: JSON.stringify(payload)
     });
-    if (response.status === 401 || response.status === 403) throw new Error("API Key 无效或权限不足，请检查设置");
-    if (response.status === 429) throw new Error("API 请求限流或额度不足，请稍后重试");
+    if (response.status === 401 || response.status === 403) throw pause("API Key 无效或权限不足，请检查设置");
+    if (response.status === 429) throw pause("API 请求限流或额度不足，请稍后重试");
+    if (response.status >= 500) throw pause(`API 服务暂不可用（HTTP ${response.status}）`);
     if (!response.ok) throw new Error(`API 请求失败（HTTP ${response.status}）`);
     const data = await response.json();
     let parsed;
@@ -199,11 +196,13 @@ async function callJev(state, key, config = DEFAULTS) {
     if(lottery&&giveawayType!=='uncertain')categories.push('giveaway');
     return {prob, recruitment, event, categories, giveawayType, kind:categories[0]||'organic'};
   } catch (error) {
-    if (error.name === "AbortError") throw new Error("API 请求超时，请检查网络后重试");
-    if (error instanceof TypeError) throw new Error("无法连接 API，请检查网络或代理");
+    if (error.name === "AbortError") throw pause("API 请求超时，请检查网络后重试");
+    if (error instanceof TypeError) throw pause("无法连接 API，请检查网络或代理");
     throw error;
   } finally { clearTimeout(timer); }
 }
+// Only service-wide failures pause all requests; a malformed single answer does not.
+function pause(message) { return Object.assign(new Error(message), {pause: true}); }
 function isGiveaway(text) {
   // Require an explicit lottery mechanism, not simply an opportunity or a prize.
   const t=String(text).replace(/\s+/g,'');
@@ -217,7 +216,7 @@ async function detect(raw) {
   const state = sanitize(raw);
   const s = await settings();
   if (!s.enabled || !(state.kind === "dynamic" ? s.dynamics : s.pinned)) throw new Error("此类检测已关闭");
-  const match = list => (Array.isArray(list) ? list : []).some(value => typeof value==='object' ? String(value.uid)===String(raw.authorId||'') : value.startsWith('uid:') ? value.slice(4) === String(raw.authorId || '') : value === String(raw.author || '').trim());
+  const match = list => (Array.isArray(list) ? list : []).some(value => value&&typeof value==='object' ? String(value.uid)===String(raw.authorId||'') : typeof value!=='string' ? false : value.startsWith('uid:') ? value.slice(4) === String(raw.authorId || '') : value === String(raw.author || '').trim());
   if (match(s.whitelist)) return {kind:'organic', prob:1, fold:false, rule:'whitelist'};
   const needsGiveaway=isGiveaway(state.text)&&s.foldCategories.includes('giveaway');
   if(needsGiveaway&&!s.apiKey.trim())return {kind:'organic',categories:[],prob:0,fold:false,rule:'local',giveawayType:'uncertain'};
@@ -243,7 +242,7 @@ async function detect(raw) {
       while (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value);
       await saveCache();
       return result;
-    } catch (e) { if (rev === revision) cooldown = Date.now() + 60000; throw e; }
+    } catch (e) { if (rev === revision && e.pause) cooldown = Date.now() + 60000; throw e; }
     finally { release(); }
   })();
   pending.set(key, request);

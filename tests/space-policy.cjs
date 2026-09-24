@@ -1,10 +1,10 @@
 const {chromium}=require('playwright'),vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
 (async()=>{
  const browser=await chromium.launch({channel:'chrome',headless:true});const page=await browser.newPage({viewport:{width:1000,height:1000}});
- let listener;let calls=0;const store={apiKey:'test',foldCategories:['ad']};
+ let listener,onChanged;let calls=0;const store={apiKey:'test',foldCategories:['ad']};
  const ctx=vm.createContext({crypto:require('node:crypto').webcrypto,TextEncoder,URL,AbortController,setTimeout,clearTimeout,
  fetch:async()=>{calls++;return {ok:true,json:async()=>({answers:{is_ad:{noul:.83},is_event:{noul:0},is_recruitment:{noul:0}}})};},
- chrome:{storage:{local:{setAccessLevel:async()=>{},get:async d=>({...d,...structuredClone(store)}),set:async v=>Object.assign(store,structuredClone(v))},onChanged:{addListener(){}}},runtime:{id:'test',getURL:p=>'chrome-extension://test/'+p,onMessage:{addListener(f){listener=f;}}},tabs:{query:async()=>[{id:1}],sendMessage:async(id,message)=>{await page.evaluate(m=>window.onMessage(m),message);}}}});
+ chrome:{storage:{local:{setAccessLevel:async()=>{},get:async d=>({...d,...structuredClone(store)}),set:async v=>{const changes=Object.fromEntries(Object.keys(v).map(k=>[k,{oldValue:structuredClone(store[k]),newValue:structuredClone(v[k])}]));Object.assign(store,structuredClone(v));onChanged?.(changes,'local');}},onChanged:{addListener(f){onChanged=f;}}},runtime:{id:'test',getURL:p=>'chrome-extension://test/'+p,onMessage:{addListener(f){listener=f;}}},tabs:{query:async()=>[{id:1}],sendMessage:async(id,message)=>{await page.evaluate(m=>window.onMessage(m),message);}}}});
  vm.runInContext(fs.readFileSync('background.js','utf8'),ctx);
  await page.exposeFunction('sendToBackground',message=>new Promise(resolve=>listener(message,{id:'test',url:page.url()},resolve)));
  await page.route('https://space.bilibili.com/**',r=>r.fulfill({contentType:'text/html',body:'<main id="mount"></main>'}));
