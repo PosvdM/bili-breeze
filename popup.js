@@ -89,6 +89,8 @@ async function renderLists(){
  for(const id of ['whitelist','enhancedList']){
   $(id).replaceChildren();
   for(const entry of lists[id]){
+   // Skip null or malformed entries instead of failing the whole list.
+   if(!entry||typeof entry!=='object'&&typeof entry!=='string')continue;
    const row=document.createElement('div');row.className='author-entry';
    const text=document.createElement('span');text.textContent=typeof entry==='object'?(entry.name||'暂未获取名字'):entry+'（按名字匹配）';text.title=text.textContent;row.append(text);
    if(typeof entry==='object'){

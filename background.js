@@ -214,6 +214,8 @@ function isGiveaway(text) {
 }
 async function detect(raw) {
   const state = sanitize(raw);
+  // Capture before reading settings, so a change during the read is detected.
+  const rev = revision;
   const s = await settings();
   if (!s.enabled || !(state.kind === "dynamic" ? s.dynamics : s.pinned)) throw new Error("此类检测已关闭");
   const match = list => (Array.isArray(list) ? list : []).some(value => value&&typeof value==='object' ? String(value.uid)===String(raw.authorId||'') : typeof value!=='string' ? false : value.startsWith('uid:') ? value.slice(4) === String(raw.authorId || '') : value === String(raw.author || '').trim());
@@ -223,7 +225,6 @@ async function detect(raw) {
   if (!needsGiveaway&&!s.foldCategories.some(k=>k==='ad'||k==='recruitment'||k==='event')) return {kind:'organic',categories:[],prob:0,fold:false,rule:'local'};
   if (!s.apiKey.trim()) throw new Error("请先填写 API Key");
   if (!state.text.trim()) throw new Error("没有可检测的文字");
-  const rev = revision;
   await cacheReady;
   const key = await cacheKey(state, s);
   if (rev !== revision) throw new Error("设置已变更，请重试");
@@ -234,7 +235,7 @@ async function detect(raw) {
     await acquire();
     try {
       if (rev !== revision) throw new Error("设置已变更，请重试");
-      if (Date.now() < cooldown) throw new Error("接口暂不可用，已暂停请求一分钟");
+      if (Date.now() < cooldown) throw Object.assign(new Error("接口暂不可用，已暂停请求一分钟"), {transient: true});
       const result = await callJev(state, s.apiKey.trim(), s);
       if (rev !== revision) throw new Error("设置已变更，请重试");
       cache.set(key, {result, expires: Date.now() + CACHE_TTL});
@@ -258,12 +259,14 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const match=/^https:\/\/space\.bilibili\.com\/([1-9][0-9]*)(?:[/?#]|$)/.exec(sender.url||'');
       if(!match)throw new Error('请在 UP 主主页操作');
       const uid=match[1];
-      const read=async()=>{const s=await settings();return {whitelist:s.whitelist.some(v=>String(v?.uid)===uid),enhancedList:s.enhancedList.some(v=>String(v?.uid)===uid)};};
+      // Also match legacy "uid:123" strings, as detect() does.
+      const hasUid=v=>v&&typeof v==='object'?String(v.uid)===uid:v==='uid:'+uid;
+      const read=async()=>{const s=await settings();return {whitelist:s.whitelist.some(hasUid),enhancedList:s.enhancedList.some(hasUid)};};
       if(message.list!==undefined){
         if(!['whitelist','enhancedList'].includes(message.list)||typeof message.add!=='boolean')throw new Error('无效的名单操作');
         historyWrites=historyWrites.catch(()=>{}).then(async()=>{
           const s=await settings(),key=message.list;
-          const entries=s[key].filter(v=>String(v?.uid)!==uid);
+          const entries=s[key].filter(v=>!hasUid(v));
           if(message.add)entries.push({uid,name:String(message.name||'').trim().slice(0,100),source:'manual'});
           const patch={[key]:entries};
           if(key==='enhancedList')patch.autoCautionExcluded=message.add?s.autoCautionExcluded.filter(v=>v!==uid):[...new Set([...s.autoCautionExcluded,uid])];
@@ -290,7 +293,8 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     }
     throw new Error("不支持的操作");
   };
-  run().then(data => reply({ok: true, data}), e => reply({ok: false, error: e.message}));
+  // retry tells the page the failure is temporary and worth checking again later.
+  run().then(data => reply({ok: true, data}), e => reply({ok: false, error: e.message, retry: !!(e.pause || e.transient)}));
   return true;
 });
 
