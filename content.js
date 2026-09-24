@@ -165,10 +165,16 @@
     // Pre-detect already rendered cards up to three screens ahead, without fetching pages.
     return rect.width > 0 && rect.height > 0 && rect.bottom >= -innerHeight && rect.top <= innerHeight * 4;
   }
+  function foldLabel(state, data) {
+    const names = {ad: "广告", giveaway: "抽奖", recruitment: "招聘", event:"活动宣传", organic: "普通内容"};
+    const confidence = data.kind === "ad" && Number.isFinite(data.prob) ? ` · ${Math.round(data.prob * 100)}%` : "";
+    return `${state.author} · ${data.kind==="giveaway"&&data.giveawayType==="incidental"?"附带抽奖":names[data.kind]}${confidence}`;
+  }
   async function process(c) {
     const key = JSON.stringify(c.state);
     const old = records.get(c.el);
-    if (old?.key === key) return;
+    // Temporary failures (cooldown, network) are checked again once the pause ends.
+    if (old?.key === key && !(old.retryAt && Date.now() >= old.retryAt)) return;
     if (old) remove(c.el, old);
     if (busy >= 2 || !nearViewport(c.el)) return;
     const rec = {key, state:c.state, display: c.el.style.getPropertyValue("display"), priority: c.el.style.getPropertyPriority("display"), hidden: false};
@@ -181,13 +187,12 @@
       // The periodic scan checks identity while requests run; recheck before painting as well.
       const fresh = collect().find(item => item.el === c.el);
       if (!fresh || JSON.stringify(fresh.state) !== key) { remove(c.el, rec); return; }
-      if (!result?.ok) { panel(c.el, rec, result?.error || "检测失败", false, true); return; }
-      rec.result=result.data;
-      if (result.data.fold) {
-        const names = {ad: "广告", giveaway: "抽奖", recruitment: "招聘", event:"活动宣传", organic: "普通内容"};
-        const confidence = result.data.kind === "ad" && Number.isFinite(result.data.prob) ? ` · ${Math.round(result.data.prob * 100)}%` : "";
-        panel(c.el, rec, `${c.state.author} · ${result.data.kind==="giveaway"&&result.data.giveawayType==="incidental"?"附带抽奖":names[result.data.kind]}${confidence}`, true);
+      if (!result?.ok) {
+        if (result?.retry) rec.retryAt = Date.now() + 60000;
+        panel(c.el, rec, result?.error || "检测失败", false, true); return;
       }
+      rec.result=result.data;
+      if (result.data.fold) panel(c.el, rec, foldLabel(c.state, result.data), true);
     } catch { if (version === epoch && records.get(c.el) === rec) panel(c.el, rec, "扩展连接已断开，请刷新页面", false, false); }
     finally { busy--; schedule(); }
   }
@@ -266,11 +271,7 @@
         if(records.get(el)!==rec||!response?.ok)continue;
         const wasFold=rec.result.fold;rec.result=response.data;
         if(wasFold&&!response.data.fold){restore(el,rec);rec.ui?.remove();rec.ui=null;}
-        else if(!wasFold&&response.data.fold){
-          const names={ad:'广告',giveaway:'抽奖',event:'活动宣传',recruitment:'招聘'};
-          const confidence=response.data.kind==='ad'?` · ${Math.round(response.data.prob*100)}%`:'';
-          panel(el,rec,`${rec.state.author} · ${names[response.data.kind]}${confidence}`,true);
-        }
+        else if(!wasFold&&response.data.fold)panel(el,rec,foldLabel(rec.state,response.data),true);
       }finally{rec.policyChecking=false;}
     }
   }

@@ -89,6 +89,10 @@ const fs=require('fs'),assert=require('node:assert/strict'),path=require('path')
  await page.reload();await page.getByRole('tab',{name:'名单',exact:true}).click();
  await page.waitForFunction(()=>document.querySelectorAll('.author-entry').length===30);
  assert.equal(await page.locator('#panel-lists').evaluate(e=>e.scrollHeight>e.clientHeight),true,'long lists remain accessible by scrolling');
+ await page.evaluate(()=>{const s=JSON.parse(localStorage.settings);s.whitelist=[null,{uid:'7',name:'有效用户'}];s.enhancedList=[{uid:'8',name:'谨慎用户'}];localStorage.settings=JSON.stringify(s);});
+ await page.reload();await page.getByRole('tab',{name:'名单',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('#whitelist').textContent.includes('有效用户')&&document.querySelector('#enhancedList').textContent.includes('谨慎用户'));
+ assert.equal(await page.locator('#whitelist .author-entry').count(),1,'null entry skipped, lists still render');
  console.log('PASS popup: auto-save persists after closing/reopening, dark/light colors, custom API save/reload');
  await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
