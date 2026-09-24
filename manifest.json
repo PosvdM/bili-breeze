@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "哔哩清风 · BiliBreeze",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "识别 B 站动态和视频置顶评论中的广告、抽奖、活动宣传与招聘，按类别折叠。支持自定义 API、白名单和谨慎过滤。",
   "permissions": [
     "storage"
@@ -35,7 +35,7 @@
     "48": "icons/48.png",
     "128": "icons/128.png"
   },
-  "version_name": "1.0",
+  "version_name": "1.0.1",
   "optional_host_permissions": [
     "https://*/*"
   ]
