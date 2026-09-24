@@ -23,5 +23,7 @@ const send=(itemId,text=itemId)=>new Promise(r=>listener({type:'detect',state:{k
  store.autoCautious=true;store.filterHistory=seed(9,4);prob=.1;for(let i=0;i<10;i++)await send('organic'+i);assert.equal((await send('organic9')).data.enhanced,true,'saved caution stays when latest window clears');
  store.enhancedList=[{uid:'123',name:'old'}];assert.equal((await send('organic9')).data.enhanced,true,'manual caution remains');
  store.enhancedList=[];store.autoCautionExcluded=['123'];store.filterHistory=seed(10,10);assert.equal((await send('removed')).data.enhanced,false,'removed entry not re-added');
+ store.autoCautionExcluded=[];store.whitelist=[{uid:'123'}];store.filterHistory=seed(10,10);
+ assert.equal((await send('whitelisted')).data.rule,'whitelist');assert.deepEqual(store.enhancedList,[],'whitelisted author not auto-added');
  console.log('PASS persistent caution: automatic saved entry, continued filtering, no exit on ratio drop, removal exclusion, cache');
 })().catch(e=>{console.error(e);process.exit(1)});

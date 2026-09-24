@@ -25,7 +25,7 @@ async function load() {
 }
 // Persist each behavior change immediately, independently of unsaved API edits.
 for (const id of behavior) $(id).addEventListener('change', () => {
-  const value = $(id).type === 'checkbox' ? $(id).checked : id === 'threshold' ? Number($(id).value) : $(id).value;
+  const value = $(id).type === 'checkbox' ? $(id).checked : $(id).value;
   chrome.storage.local.set({[id]:value}).then(()=>{$('status').textContent='已自动保存';}).catch(()=>{$('status').textContent='保存失败，请重试';});
 });
 $('provider').addEventListener('change', updateFields);
