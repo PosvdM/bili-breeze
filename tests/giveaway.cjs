@@ -2,7 +2,7 @@ const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/st
 const store={apiKey:'test',foldCategories:['giveaway']};let listener,calls=0,primary=.05,incidental=.95,ad=.1,lastPayload;
 const context=vm.createContext({crypto:require('node:crypto').webcrypto,TextEncoder,URL,AbortController,setTimeout,clearTimeout,
 fetch:async(url,init)=>{calls++;lastPayload=JSON.parse(init.body);return {ok:true,json:async()=>store.provider==='custom'?{choices:[{message:{content:JSON.stringify({ad_prob:ad,recruitment_prob:0,giveaway_primary_prob:primary,giveaway_incidental_prob:incidental})}}]}:{answers:{is_ad:{noul:ad},is_recruitment:{noul:0},giveaway_primary:{noul:primary},giveaway_incidental:{noul:incidental}}}};},chrome:{permissions:{contains:async()=>true},storage:{local:{setAccessLevel:async()=>{},get:async d=>({...d,...structuredClone(store)}),set:async v=>Object.assign(store,structuredClone(v))},onChanged:{addListener(){}}},runtime:{id:'test',getURL:p=>'chrome-extension://test/'+p,onMessage:{addListener(f){listener=f;}}},tabs:{query:async()=>[]}}});
-vm.runInContext(fs.readFileSync('background.js','utf8'),context);
+require('./helpers/background.cjs')(context);
 const send=(text,extra={})=>new Promise(r=>listener({type:'detect',state:{kind:'dynamic',text,...extra}},{id:'test',url:'https://t.bilibili.com/'},r));
 (async()=>{
  const news='游戏入围金摇杆年度提名，投票通道开启。互动抽奖 转发关注抽1人送耳机';

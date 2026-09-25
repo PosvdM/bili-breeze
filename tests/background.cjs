@@ -1,7 +1,6 @@
 const fs = require('fs');
 const vm = require('vm');
 const assert = require('node:assert/strict');
-const source = fs.readFileSync('background.js','utf8');
 const store = {};
 let allow=true, expectedUrl="https://api.typesafe.ai/v1/systemone", expectedModel="jev-latest", protocol="jev";
 let handler, change, fetchCount=0, responseProb=.91, status=200, live=0, peak=0;
@@ -17,7 +16,7 @@ const context = vm.createContext({console,crypto:require("node:crypto").webcrypt
   chrome:{permissions:{contains:async()=>allow},storage:{local:{set:async values=>Object.assign(store,JSON.parse(JSON.stringify(values))),setAccessLevel:async arg=>assert.equal(arg.accessLevel,'TRUSTED_CONTEXTS'),get:async defaults=>({...defaults,...store})},onChanged:{addListener(fn){change=fn;}}},
     tabs:{query:async()=>[],sendMessage:async()=>{}},runtime:{id:'test',getURL:p=>'chrome-extension://test/'+p,onMessage:{addListener(fn){handler=fn;}}}}
 });
-vm.runInContext(source,context);
+require('./helpers/background.cjs')(context);
 const sender = {id:'test',url:'https://www.bilibili.com/video/test/'};
 function send(message, from=sender){return new Promise(resolve=>{if(!handler(message,from,resolve))resolve(null);});}
 function set(values){Object.assign(store,values);change(values,'local');}
