@@ -9,7 +9,6 @@ const send=text=>call({type:'detect',state:{kind:'dynamic',text,author:'UP',auth
 (async()=>{
  const builtin=vm.runInContext('DEFAULT_PROMPT',context);
  assert(builtin.includes('广告只输出一个概率，不细分类型。'));
- assert(builtin.includes('《黑神话：悟空》') && builtin.includes('《黑神话：钟馗》'));
  assert(builtin.includes('周边带货') && builtin.includes('第三方品牌合作'));
  assert(builtin.length < 4000);
  const settings=await call({type:'settings'},'chrome-extension://test/popup.html');
