@@ -3,7 +3,7 @@ let listener,fail=false,lastUrl='',response={code:0,data:{card:{mid:123,name:'UP
 const store={filterHistory:{}};
 const context=vm.createContext({crypto:require('node:crypto').webcrypto,TextEncoder,URL,AbortController,AbortSignal,setTimeout,clearTimeout,
 fetch:async url=>{lastUrl=url;if(fail)throw Error('blocked');return {ok:true,json:async()=>response};},chrome:{storage:{local:{setAccessLevel:async()=>{},get:async d=>({...d,...structuredClone(store)}),set:async v=>Object.assign(store,structuredClone(v))},onChanged:{addListener(){}}},runtime:{id:'test',getURL:p=>'chrome-extension://test/'+p,onMessage:{addListener(f){listener=f;}}},tabs:{query:async()=>[]}}});
-vm.runInContext(fs.readFileSync('background.js','utf8'),context);
+require('./helpers/background.cjs')(context);
 const send=(query,url='chrome-extension://test/popup.html')=>new Promise(r=>listener({type:'lookupAuthor',query},{id:'test',url},r));
 (async()=>{
  assert.equal((await send('123')).data.users[0].name,'UP主');assert(lastUrl.endsWith('mid=123'));

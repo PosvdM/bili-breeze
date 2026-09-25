@@ -2,7 +2,7 @@ const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/st
 const store={apiKey:'test',foldCategories:['ad','giveaway']};let listener,calls=0,ad=.9,recruitment=0;
 const context=vm.createContext({crypto:require('node:crypto').webcrypto,TextEncoder,URL,AbortController,setTimeout,clearTimeout,
 fetch:async()=>{calls++;return {ok:true,json:async()=>({answers:{is_ad:{noul:ad},is_recruitment:{noul:recruitment},giveaway_primary:{noul:.95},giveaway_incidental:{noul:.02}}})};},chrome:{storage:{local:{setAccessLevel:async()=>{},get:async d=>({...d,...structuredClone(store)}),set:async v=>Object.assign(store,structuredClone(v))},onChanged:{addListener(){}}},runtime:{id:'test',getURL:p=>'chrome-extension://test/'+p,onMessage:{addListener(f){listener=f;}}},tabs:{query:async()=>[]}}});
-vm.runInContext(fs.readFileSync('background.js','utf8'),context);
+require('./helpers/background.cjs')(context);
 const send=text=>new Promise(r=>listener({type:'detect',state:{kind:'dynamic',text,author:'喜欢的UP',authorId:'123'}},{id:'test',url:'https://t.bilibili.com/'},r));
 (async()=>{
  const yes=['互动抽奖好运来','转发+评论+关注 本月抽1人送手表','本月抽奖，奖品手表，评论参与','从评论中随机抽取三名朋友送出奖品'];
