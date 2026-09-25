@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "哔哩清风 · BiliBreeze",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt+yjHVeiw+3k8XCbmA5b9YvhegEQ95X1G8jjbTp7ABNtcgdsySWeBlyaVMuqRaceYn967m6KNPulRWVqX7uuFOY0fn3sBYefFiUpMOIHhB44MublHGcNRRRFmw79++AAOKGgRrYRvyGWKMyXwmorpwq8+zxzVRBSq8uXROYMx+QqANdji6u6ct+0qcjxQChxPvxH08XdalxM8hxkWViaPtKv2zrDC6zsgPVlFCQ+8TDDgh1GFRqRPpRzXUbBsUuXkwy44L9gQAxrD/afGQE2etwYXnAe6XkLFty3oFOiSrhrboDe7kZe/ap2VRyLfRKvhNjACE73jwnmPkbXMABRMwIDAQAB",
   "description": "识别 B 站动态和视频置顶评论中的广告、抽奖、活动宣传与招聘，按类别折叠。支持自定义 API、白名单和谨慎过滤。",
   "permissions": [
@@ -36,7 +36,7 @@
     "48": "icons/48.png",
     "128": "icons/128.png"
   },
-  "version_name": "1.0.2",
+  "version_name": "1.0.3",
   "optional_host_permissions": [
     "https://*/*"
   ]
