@@ -19,6 +19,7 @@ async function load() {
     $(key+'Range').value=$(key+'Number').value=response.data[key]??fallback;
   }
   $('ratioWindow').value=response.data.ratioWindow??10;
+  $('customPrompt').value=response.data.customPrompt||'';
   await renderLists();
   updateFields();
   $('status').textContent = s.apiKey ? '已配置 API' : '请先设置 API';
@@ -150,6 +151,10 @@ for(const [key,fallback] of Object.entries({adThreshold:70,cautiousThreshold:90,
  number.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();number.blur();}});
 }
 $('ratioWindow').addEventListener('change',async()=>{const value=Math.min(100,Math.max(2,Math.round(Number($('ratioWindow').value)||10)));$('ratioWindow').value=value;await chrome.storage.local.set({ratioWindow:value});$('status').textContent='已自动保存';});
+$('customPrompt').addEventListener('change',async()=>{
+ const value=$('customPrompt').value.trim().slice(0,2000);$('customPrompt').value=value;
+ try{await chrome.storage.local.set({customPrompt:value});$('status').textContent='已自动保存';}catch{$('status').textContent='保存失败，请重试';}
+});
 $('ratioWindow').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('ratioWindow').blur();}});
 
 chrome.storage.onChanged?.addListener((changes,area)=>{if(area==='local'&&(changes.enhancedList||changes.whitelist))renderLists().catch(()=>{});});
