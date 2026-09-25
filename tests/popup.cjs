@@ -7,7 +7,7 @@ const fs=require('fs'),assert=require('node:assert/strict'),path=require('path')
  await page.route('https://fixture.test/**',r=>{const name=new URL(r.request().url()).pathname.slice(1)||'popup.html';r.fulfill({body:fs.readFileSync(path.join(root,name)),contentType:name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html'});});
  await page.addInitScript(()=>{
   const get=()=>JSON.parse(localStorage.getItem('settings')||'{}');
-  window.chrome={permissions:{request:async()=>true},storage:{local:{get:async d=>({...d,...get()}),set:async v=>localStorage.setItem('settings',JSON.stringify({...get(),...v}))}},runtime:{sendMessage:async m=>m.type==='lookupAuthor'?{ok:true,data:{users:m.query==='重名'?[{uid:'2',name:'重名'},{uid:'3',name:'重名'}]:[{uid:'123',name:'-LKs-'}]}}:({ok:true,data:{enabled:true,dynamics:true,pinned:true,mode:'label',threshold:.6,...get()}})}};
+  window.chrome={permissions:{request:async()=>true},storage:{local:{get:async d=>({...d,...get()}),set:async v=>localStorage.setItem('settings',JSON.stringify({...get(),...v}))}},runtime:{sendMessage:async m=>m.type==='lookupAuthor'?{ok:true,data:{users:m.query==='重名'?[{uid:'2',name:'重名'},{uid:'3',name:'重名'}]:[{uid:'123',name:'-LKs-'}]}}:({ok:true,data:{enabled:true,dynamics:true,pinned:true,mode:'label',threshold:.6,defaultPrompt:'内置规则',...get()}})}};
  });
  await page.goto('https://fixture.test/popup.html');
  await page.waitForFunction(()=>document.querySelector('#enabled').checked);
@@ -77,10 +77,16 @@ const fs=require('fs'),assert=require('node:assert/strict'),path=require('path')
  await page.locator('#ratioThresholdRange').fill('45');await page.locator('#ratioThresholdRange').dispatchEvent('change');
  await page.waitForFunction(()=>JSON.parse(localStorage.settings).ratioThreshold===45);
  assert.equal(await page.locator('#ratioThresholdNumber').inputValue(),'45');
- await page.locator('#customPrompt').fill('  游戏官方号宣传新活动也算广告  ');await page.locator('#customPrompt').press('Tab');
- await page.waitForFunction(()=>JSON.parse(localStorage.settings).customPrompt==='游戏官方号宣传新活动也算广告');
+ assert.equal(await page.locator('#rulesPrompt').inputValue(),'内置规则','shows the built-in prompt for editing');
+ await page.locator('#rulesPrompt').fill('  只判断品牌商单  ');await page.locator('#rulesPrompt').press('Tab');
+ await page.waitForFunction(()=>JSON.parse(localStorage.settings).rulesPrompt==='只判断品牌商单');
  await page.reload();await page.locator('#openRules').click();
- assert.equal(await page.locator('#customPrompt').inputValue(),'游戏官方号宣传新活动也算广告');
+ assert.equal(await page.locator('#rulesPrompt').inputValue(),'只判断品牌商单');
+ await page.locator('#resetPrompt').click();
+ await page.waitForFunction(()=>JSON.parse(localStorage.settings).rulesPrompt==='');
+ assert.equal(await page.locator('#rulesPrompt').inputValue(),'内置规则','reset restores the built-in text');
+ await page.locator('#rulesPrompt').fill('');await page.locator('#rulesPrompt').press('Tab');
+ assert.equal(await page.locator('#rulesPrompt').inputValue(),'内置规则','clearing also restores it');
  const ruleBox=await page.locator('#filterRules').boundingBox(),footBox=await page.locator('footer').boundingBox();assert(ruleBox.y+ruleBox.height<=footBox.y);
  await page.screenshot({path:'test-results/rules-1.0.0.png',fullPage:true});
  await page.locator('#backRules').click();
