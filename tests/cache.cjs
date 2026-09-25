@@ -1,7 +1,6 @@
 const vm = require('node:vm');
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
-const source = fs.readFileSync('background.js','utf8');
 const store = {apiKey:'test-only'};
 let calls = 0;
 function boot() {
@@ -10,7 +9,7 @@ function boot() {
     fetch:async()=>{calls++;return {ok:true,json:async()=>({answers:{is_ad:{noul:.9},is_recruitment:{noul:0}}})};},
     chrome:{storage:{local:{setAccessLevel:async()=>{},get:async defaults=>({...defaults,...structuredClone(store)}),set:async values=>Object.assign(store,structuredClone(values))},onChanged:{addListener(){}}},
     runtime:{id:'test',getURL:p=>'chrome-extension://test/'+p,onMessage:{addListener(fn){listener=fn;}}},tabs:{query:async()=>[]}}};
-  vm.runInNewContext(source,sandbox);
+  require('./helpers/background.cjs')(sandbox);
   return text=>new Promise(resolve=>listener({type:'detect',state:{kind:'dynamic',text,author:'测试UP',authorId:'123',url:'https://t.bilibili.com/12345'}}, {id:'test',url:'https://t.bilibili.com/'},resolve));
 }
 (async()=>{
