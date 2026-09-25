@@ -31,7 +31,7 @@ const fs=require('fs'),assert=require('node:assert/strict'),path=require('path')
  await page.locator('#enhancedListQuery').fill('123');await page.locator('#enhancedListQuery').press('Enter');
  await page.waitForFunction(()=>JSON.parse(localStorage.settings).enhancedList[0].name==='-LKs-');
  assert((await page.locator('#enhancedList .author-entry').boundingBox()).height<65,'compact author row');
- await page.screenshot({path:'../popup-lists-1.0.0.png',fullPage:true});
+ await page.screenshot({path:'test-results/popup-lists-1.0.0.png',fullPage:true});
  await page.reload();await page.waitForFunction(()=>document.querySelector('#enhancedList').textContent.includes('UID 123'));
  await page.getByRole('tab',{name:'名单',exact:true}).click();
  await page.locator('#whitelistQuery').fill('不是UID');await page.locator('#whitelistAdd').click();
@@ -56,9 +56,9 @@ const fs=require('fs'),assert=require('node:assert/strict'),path=require('path')
  await page.locator('#apiModel').fill('unsaved-model');
  assert((await page.locator('body').boundingBox()).height<=580,'custom API fits within 580 CSS pixels');
  assert.equal(await page.locator('#panel-api').evaluate(e=>e.scrollHeight<=e.clientHeight),true);
- await page.screenshot({path:'../popup-api-1.0.0.png',fullPage:true});
+ await page.screenshot({path:'test-results/popup-api-1.0.0.png',fullPage:true});
  await page.getByRole('tab',{name:'过滤',exact:true}).click();
- await page.emulateMedia({colorScheme:'dark'});await page.screenshot({path:'../popup-1.0.0.png',fullPage:true});
+ await page.emulateMedia({colorScheme:'dark'});await page.screenshot({path:'test-results/popup-1.0.0.png',fullPage:true});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  assert.equal(await page.locator('html').evaluate(e=>e.getBoundingClientRect().width),380);
  for(const name of ['过滤','名单','API']){
@@ -82,7 +82,7 @@ const fs=require('fs'),assert=require('node:assert/strict'),path=require('path')
  await page.reload();await page.locator('#openRules').click();
  assert.equal(await page.locator('#customPrompt').inputValue(),'游戏官方号宣传新活动也算广告');
  const ruleBox=await page.locator('#filterRules').boundingBox(),footBox=await page.locator('footer').boundingBox();assert(ruleBox.y+ruleBox.height<=footBox.y);
- await page.screenshot({path:'../rules-1.0.0.png',fullPage:true});
+ await page.screenshot({path:'test-results/rules-1.0.0.png',fullPage:true});
  await page.locator('#backRules').click();
  await page.setViewportSize({width:380,height:580});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight),true,'no page scrollbar in compact popup');
