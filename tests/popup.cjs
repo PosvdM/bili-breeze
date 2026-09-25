@@ -77,6 +77,10 @@ const fs=require('fs'),assert=require('node:assert/strict'),path=require('path')
  await page.locator('#ratioThresholdRange').fill('45');await page.locator('#ratioThresholdRange').dispatchEvent('change');
  await page.waitForFunction(()=>JSON.parse(localStorage.settings).ratioThreshold===45);
  assert.equal(await page.locator('#ratioThresholdNumber').inputValue(),'45');
+ await page.locator('#customPrompt').fill('  游戏官方号宣传新活动也算广告  ');await page.locator('#customPrompt').press('Tab');
+ await page.waitForFunction(()=>JSON.parse(localStorage.settings).customPrompt==='游戏官方号宣传新活动也算广告');
+ await page.reload();await page.locator('#openRules').click();
+ assert.equal(await page.locator('#customPrompt').inputValue(),'游戏官方号宣传新活动也算广告');
  const ruleBox=await page.locator('#filterRules').boundingBox(),footBox=await page.locator('footer').boundingBox();assert(ruleBox.y+ruleBox.height<=footBox.y);
  await page.screenshot({path:'../rules-1.0.0.png',fullPage:true});
  await page.locator('#backRules').click();
