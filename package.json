@@ -1,6 +1,6 @@
 {
   "name": "bili-breeze",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "description": "哔哩清风：B站动态与置顶评论广告识别",
   "scripts": {
