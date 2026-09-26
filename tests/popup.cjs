@@ -70,7 +70,7 @@ const fs=require('fs'),assert=require('node:assert/strict'),path=require('path')
  assert((await page.locator('body').boundingBox()).height<=580,'filter fits within 580 CSS pixels, including footer');
  assert.equal(await page.locator('#panel-filter').evaluate(e=>e.scrollHeight<=e.clientHeight),true);
  await page.locator('#openRules').click();
- assert.equal(await page.locator('#adThresholdNumber').inputValue(),'70');
+ assert.equal(await page.locator('#adThresholdNumber').inputValue(),'40','built-in default');
  await page.locator('#adThresholdNumber').fill('75');await page.locator('#adThresholdNumber').press('Tab');
  await page.waitForFunction(()=>JSON.parse(localStorage.settings).adThreshold===75);
  assert.equal(await page.locator('#adThresholdRange').inputValue(),'75');

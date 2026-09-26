@@ -1,7 +1,7 @@
 /* No relay server, registration, activation, telemetry or remote configuration. */
-const DEFAULTS = {enabled: true, dynamics: true, pinned: true, foldCategories: ["ad", "giveaway"], whitelist: [], enhancedList: [], foldIncidental: false, adThreshold:70, cautiousThreshold:90, autoCautious:true, autoCautionExcluded:[], ratioWindow:10, ratioThreshold:40, apiKey: "", provider: "jev", apiUrl: "", apiModel: "", apiProtocol: "openai", rulesPrompt: ""};
-const API = "https://api.typesafe.ai/v1/systemone";
 importScripts('prompts/classification.js', 'prompts/giveaway.js', 'prompts/request.js');
+const DEFAULTS = {enabled: true, dynamics: true, pinned: true, foldCategories: ["ad", "giveaway"], whitelist: [], enhancedList: [], foldIncidental: false, adThreshold:DEFAULT_AD_THRESHOLD, cautiousThreshold:DEFAULT_CAUTIOUS_THRESHOLD, autoCautious:true, autoCautionExcluded:[], ratioWindow:10, ratioThreshold:40, apiKey: "", provider: "jev", apiUrl: "", apiModel: "", apiProtocol: "openai", rulesPrompt: ""};
+const API = "https://api.typesafe.ai/v1/systemone";
 function normalizePrompt(value) {
   const text = String(value || "").trim().slice(0, PROMPT_LIMIT);
   return text === DEFAULT_PROMPT ? "" : text;
@@ -114,7 +114,7 @@ async function settings() {
 async function publicSettings() {
   const {apiKey, apiUrl, apiModel, apiProtocol, provider, ...rest} = await settings();
   // Every category needs the API, including giveaway primary/incidental checks.
-  return {...rest, defaultPrompt: DEFAULT_PROMPT, configured: !!apiKey.trim()};
+  return {...rest, defaultPrompt: DEFAULT_PROMPT, defaultThresholds: {adThreshold: DEFAULTS.adThreshold, cautiousThreshold: DEFAULTS.cautiousThreshold, ratioThreshold: DEFAULTS.ratioThreshold}, configured: !!apiKey.trim()};
 }
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !Object.keys(DEFAULTS).some(k => k in changes)) return;
