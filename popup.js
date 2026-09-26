@@ -1,6 +1,8 @@
 const $ = id => document.getElementById(id);
 const behavior = ['enabled','dynamics','pinned','foldIncidental','autoCautious'];
 let defaultPrompt='';
+// Filled from the background; used when a percentage input is invalid.
+let thresholdDefaults={adThreshold:40,cautiousThreshold:90,ratioThreshold:40};
 function updateFields() {
   const custom = $('provider').value === 'custom';
   $('customFields').hidden = !custom;
@@ -16,8 +18,9 @@ async function load() {
   const s = await chrome.storage.local.get({apiKey:'',provider:'jev',apiUrl:'',apiModel:'',apiProtocol:'openai'});
   for (const id of Object.keys(s)) if ($(id)) $(id).value = s[id];
   for (const kind of ['ad','giveaway','recruitment','event']) $('fold_'+kind).checked = (response.data.foldCategories || ['ad','giveaway']).includes(kind);
-  for(const [key,fallback] of Object.entries({adThreshold:70,cautiousThreshold:90,ratioThreshold:40})){
-    $(key+'Range').value=$(key+'Number').value=response.data[key]??fallback;
+  thresholdDefaults={...thresholdDefaults,...response.data.defaultThresholds};
+  for(const key of Object.keys(thresholdDefaults)){
+    $(key+'Range').value=$(key+'Number').value=response.data[key]??thresholdDefaults[key];
   }
   $('ratioWindow').value=response.data.ratioWindow??10;
   defaultPrompt=response.data.defaultPrompt||'';
@@ -140,11 +143,11 @@ for(const [index,key] of tabKeys.entries()){
 
 $('openRules').onclick=()=>{$('filterOverview').hidden=true;$('filterRules').hidden=false;};
 $('backRules').onclick=()=>{$('filterOverview').hidden=false;$('filterRules').hidden=true;};
-for(const [key,fallback] of Object.entries({adThreshold:70,cautiousThreshold:90,ratioThreshold:40})){
+for(const key of ['adThreshold','cautiousThreshold','ratioThreshold']){
  const range=$(key+'Range'),number=$(key+'Number');
  range.addEventListener('input',()=>{number.value=range.value;});
  async function savePercent(source){
-  const raw=Number(source.value),value=source.value.trim()!==''&&Number.isFinite(raw)?Math.min(100,Math.max(1,Math.round(raw))):fallback;
+  const raw=Number(source.value),value=source.value.trim()!==''&&Number.isFinite(raw)?Math.min(100,Math.max(1,Math.round(raw))):thresholdDefaults[key];
   range.value=number.value=value;await chrome.storage.local.set({[key]:value});$('status').textContent='已自动保存';
  }
  range.addEventListener('change',()=>savePercent(range).catch(()=>{$('status').textContent='保存失败';}));
