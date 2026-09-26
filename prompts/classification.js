@@ -1,6 +1,9 @@
 // Bump this when classification rules change, so cached decisions are not reused.
 const CLASSIFICATION_VERSION = 'general-rules-v8';
 const PROMPT_LIMIT = 4000;
+// Default fold thresholds (%), tuned for DEFAULT_PROMPT; revisit them when the rules change.
+const DEFAULT_AD_THRESHOLD = 40;
+const DEFAULT_CAUTIOUS_THRESHOLD = 90;
 
 const DEFAULT_PROMPT = `判断 B 站内容的广告、真实岗位招聘和活动宣传概率。三项独立判断，可同时命中。广告只输出一个概率，不细分类型。
 

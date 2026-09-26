@@ -13,6 +13,9 @@ const send=text=>call({type:'detect',state:{kind:'dynamic',text,author:'UP',auth
  assert(builtin.length < 4000);
  const settings=await call({type:'settings'},'chrome-extension://test/popup.html');
  assert.equal(settings.data.defaultPrompt,builtin,'popup receives the built-in prompt');
+ assert.equal(settings.data.adThreshold,vm.runInContext('DEFAULT_AD_THRESHOLD',context),'unset threshold uses the prompt default');
+ assert.equal(settings.data.adThreshold,40);
+ assert.deepEqual({...settings.data.defaultThresholds},{adThreshold:40,cautiousThreshold:90,ratioThreshold:40},'popup receives the defaults');
 
  const state={platform:'bilibili',kind:'dynamic',text:'x',title:'',links:[]};context.state=state;
  const legacy=require('node:crypto').createHash('sha256').update(JSON.stringify(['events-v5',['https://api.typesafe.ai/v1/systemone','jev','jev-latest'],state])).digest('hex');
