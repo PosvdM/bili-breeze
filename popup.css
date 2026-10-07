@@ -41,3 +41,16 @@ html{height:580px;min-height:580px}body{height:580px;min-height:580px;padding:16
 #rulesPrompt{display:block;width:100%;min-height:150px;resize:vertical;margin:0;padding:8px;font-size:12px;line-height:1.5;font-family:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:6px}#rulesPrompt:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 #filterRules{max-height:408px;overflow-y:auto;scrollbar-width:thin}
 .prompt-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}.prompt-head .rule-label{margin:0}#resetPrompt{padding:4px 8px;font-size:11px}
+
+/* Magenta marks values that follow the rule configuration's defaults. */
+:root{--default:#c4267e}@media(prefers-color-scheme:dark){:root{--default:#ee5fb4}}
+.percent-control input[type=range]{-webkit-appearance:none;appearance:none;height:18px;background:transparent;cursor:pointer}
+.percent-control input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(to right,var(--accent) var(--fill,50%),var(--line) var(--fill,50%))}
+.percent-control input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;margin-top:-6px;border-radius:50%;background:var(--accent)}
+.percent-control input[type=range].is-default::-webkit-slider-thumb{background:var(--default)}
+.percent-control input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#ratioWindow.is-default,#rulesPrompt.is-default{border-color:var(--default)}
+.rule-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:10px 0 4px}.rule-head .rule-label{margin:0}#filterRules .rule-head:first-child{margin-top:0}
+.reset-default{padding:2px 7px;font-size:13px;line-height:1.2}.reset-default[aria-disabled=true],#resetPrompt[aria-disabled=true]{opacity:.45;cursor:default}
+.window-control{display:flex;align-items:center;gap:8px}
+.rule-status h2{font-size:13px;margin:0}.rule-status .row{gap:12px}.rule-status .row>span:last-child,.status-value{text-align:right;overflow-wrap:anywhere}.status-value{display:flex;align-items:center;justify-content:flex-end;gap:8px}#refreshRules{padding:4px 8px;font-size:11px;flex-shrink:0}#ruleChannel{padding:4px 6px}#ruleError{margin:8px 0 0}#ruleError:empty{display:none}

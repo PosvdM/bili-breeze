@@ -1,10 +1,12 @@
-/* No relay server, registration, activation, telemetry or remote configuration. */
-importScripts('prompts/classification.js', 'prompts/giveaway.js', 'prompts/request.js');
-const DEFAULTS = {enabled: true, dynamics: true, pinned: true, foldCategories: ["ad", "giveaway"], whitelist: [], enhancedList: [], foldIncidental: false, adThreshold:DEFAULT_AD_THRESHOLD, cautiousThreshold:DEFAULT_CAUTIOUS_THRESHOLD, autoCautious:true, autoCautionExcluded:[], ratioWindow:10, ratioThreshold:40, apiKey: "", provider: "jev", apiUrl: "", apiModel: "", apiProtocol: "openai", rulesPrompt: ""};
+/* No relay server, registration, activation or telemetry. Rules are data files fetched from GitHub (rules.js). */
+importScripts('rules.js', 'prompts/request.js');
+const DEFAULTS = {enabled: true, dynamics: true, pinned: true, foldCategories: ["ad", "giveaway"], whitelist: [], enhancedList: [], foldIncidental: false, autoCautious:true, autoCautionExcluded:[], apiKey: "", provider: "jev", apiUrl: "", apiModel: "", apiProtocol: "openai", rulesPrompt: ""};
 const API = "https://api.typesafe.ai/v1/systemone";
-function normalizePrompt(value) {
+// Thresholds and the prompt are stored only when they differ from the defaults in rules.js.
+const RULE_KEYS = [...Object.keys(THRESHOLD_RANGES), "remoteRules", "ruleChannel"];
+function normalizePrompt(value, defaultPrompt) {
   const text = String(value || "").trim().slice(0, PROMPT_LIMIT);
-  return text === DEFAULT_PROMPT ? "" : text;
+  return text === defaultPrompt ? "" : text;
 }
 const cache = new Map();
 const CACHE_TTL = 30 * 86400000;
@@ -15,9 +17,9 @@ let historyWrites = Promise.resolve();
 function safeBiliUrl(value) {
   try { const url = new URL(value); return url.protocol === "https:" && /^(www|t|space)\.bilibili\.com$/.test(url.hostname) ? url.origin + url.pathname : ""; } catch { return ""; }
 }
-function authorRatio(history, uid, config=DEFAULTS) {
+function authorRatio(history, uid, config) {
   if(!config.autoCautious||(config.autoCautionExcluded||[]).includes(String(uid))||!/^[0-9]+$/.test(String(uid||'')))return null;
-  const rows=Object.values(history).filter(r=>r.authorId===String(uid)&&r.type==='dynamic'&&r.rule==='category'&&r.classificationVersion===CLASSIFICATION_VERSION&&Number.isFinite(r.prob))
+  const rows=Object.values(history).filter(r=>r.authorId===String(uid)&&r.type==='dynamic'&&r.rule==='category'&&r.classificationVersion===config.rulesVersion&&Number.isFinite(r.prob))
     .sort((a,b)=>(b.firstSeen||0)-(a.firstSeen||0)||String(b.id).localeCompare(String(a.id))).slice(0,config.ratioWindow);
   const ads=rows.filter(r=>r.prob>=config.adThreshold/100).length;
   return rows.length===config.ratioWindow && ads/rows.length>=config.ratioThreshold/100 ? {total:rows.length,ads} : null;
@@ -31,7 +33,7 @@ function applyPolicy(result,raw,config,history) {
   const manual=(config.enhancedList||[]).some(v=>v&&typeof v==='object'?String(v.uid)===String(raw.authorId||''):typeof v==='string'&&(v.startsWith('uid:')?v.slice(4)===String(raw.authorId||''):v===String(raw.author||'').trim()));
   const savedAuto=(config.enhancedList||[]).find(v=>v&&typeof v==='object'&&String(v.uid)===String(raw.authorId||'')&&v.source==='auto');
   result.autoCautious=savedAuto?.sample||null;
-  const sample=Object.values(history).filter(r=>r.authorId===String(raw.authorId||'')&&r.type==='dynamic'&&r.rule==='category'&&r.classificationVersion===CLASSIFICATION_VERSION&&Number.isFinite(r.prob)).sort((a,b)=>(b.firstSeen||0)-(a.firstSeen||0)).slice(0,config.ratioWindow);
+  const sample=Object.values(history).filter(r=>r.authorId===String(raw.authorId||'')&&r.type==='dynamic'&&r.rule==='category'&&r.classificationVersion===config.rulesVersion&&Number.isFinite(r.prob)).sort((a,b)=>(b.firstSeen||0)-(a.firstSeen||0)).slice(0,config.ratioWindow);
   result.cautionStatus=!raw.authorId?'missing_uid':result.autoCautious?'active':!config.autoCautious?'disabled':sample.length<config.ratioWindow?'collecting':'inactive';
   result.cautionSample={total:sample.length,required:config.ratioWindow,ads:sample.filter(r=>r.prob>=config.adThreshold/100).length,trigger:config.ratioThreshold};
   result.enhanced=manual||!!result.autoCautious;
@@ -51,7 +53,7 @@ async function logDetection(raw, result) {
     const {filterHistory = {}} = await chrome.storage.local.get({filterHistory: {}});
     const s = await settings();
     const old = filterHistory[id];
-    filterHistory[id] = {classificationVersion:CLASSIFICATION_VERSION, id, author, authorId, url, type: raw.kind, giveawayType:result.giveawayType, prob: result.prob, kind: result.kind, categories: result.categories || [result.kind],
+    filterHistory[id] = {classificationVersion:s.rulesVersion, id, author, authorId, url, type: raw.kind, giveawayType:result.giveawayType, prob: result.prob, kind: result.kind, categories: result.categories || [result.kind],
       action: result.fold ? "折叠" : "放行", rule: result.rule || "category", enhanced: !!result.enhanced, adThreshold:result.adThreshold, autoCautious:result.autoCautious,
       preview: String(raw.text || "").slice(0, 160), firstSeen: old?.firstSeen || Date.now(), lastSeen: Date.now()};
     const qualifies=authorRatio(filterHistory,authorId,s);
@@ -75,12 +77,7 @@ let cooldown = 0;
 const waiting = [];
 // Keys stay in trusted extension contexts, never in page/content-script storage.
 const storageReady = chrome.storage.local.setAccessLevel({accessLevel: "TRUSTED_CONTEXTS"});
-const promptReady = storageReady.then(async () => {
-  const {customPrompt = "", rulesPrompt = ""} = await chrome.storage.local.get({customPrompt: "", rulesPrompt: ""});
-  if (!String(customPrompt).trim()) return;
-  if (!rulesPrompt) await chrome.storage.local.set({rulesPrompt: normalizePrompt(DEFAULT_PROMPT + "\n用户补充规则（与上文冲突时以此为准）：" + String(customPrompt).trim())});
-  await chrome.storage.local.remove("customPrompt");
-}).catch(() => {});
+storageReady.then(() => refreshRules()).catch(() => {});
 const cacheReady = storageReady.then(async () => {
   const {resultCache = {}} = await chrome.storage.local.get({resultCache: {}});
   for (const [key, entry] of Object.entries(resultCache)) {
@@ -96,8 +93,8 @@ function validEntry(entry) {
 async function cacheKey(state, s) {
   // Store only a digest, result and expiry, never the source text or API key.
   const service = s.provider === "custom" ? [s.apiUrl, s.apiProtocol, s.apiModel] : [API, "jev", "jev-latest"];
-  // Rule revisions invalidate old decisions; custom rules also have separate keys.
-  const parts = s.rulesPrompt ? [CLASSIFICATION_VERSION, service, state, s.rulesPrompt] : [CLASSIFICATION_VERSION, service, state];
+  // A different effective prompt, edited or default, invalidates old decisions.
+  const parts = [service, state, s.prompt];
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(parts)));
   return Array.from(new Uint8Array(bytes), n => n.toString(16).padStart(2, "0")).join("");
 }
@@ -106,18 +103,29 @@ async function saveCache() {
   await cacheWrites.catch(() => {});
 }
 async function settings() {
- await storageReady;await promptReady;const s=await chrome.storage.local.get(DEFAULTS);
- for(const [key,min,max] of [['adThreshold',1,100],['cautiousThreshold',1,100],['ratioThreshold',1,100],['ratioWindow',2,100]])s[key]=Number.isFinite(Number(s[key]))?Math.min(max,Math.max(min,Math.round(Number(s[key])))):DEFAULTS[key];
- s.rulesPrompt=normalizePrompt(s.rulesPrompt);
+ await storageReady;
+ const overrides=Object.fromEntries(Object.keys(THRESHOLD_RANGES).map(k=>[k,null]));
+ const [s,rules]=await Promise.all([chrome.storage.local.get({...DEFAULTS,...overrides}),readRules()]);
+ const defaults=rules.files.thresholds.value;
+ for(const [key,[min,max]] of Object.entries(THRESHOLD_RANGES))s[key]=s[key]!==null&&Number.isFinite(Number(s[key]))?Math.min(max,Math.max(min,Math.round(Number(s[key])))):defaults[key];
+ s.rulesPrompt=normalizePrompt(s.rulesPrompt,rules.files.prompt.value);
+ s.prompt=s.rulesPrompt||rules.files.prompt.value;
+ // Identifies the prompt behind a history record, so auto-caution samples only use current rules.
+ const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s.prompt));
+ s.rulesVersion=Array.from(new Uint8Array(digest).subarray(0,8),n=>n.toString(16).padStart(2,"0")).join("");
+ s.rules=rules;
  return s;
 }
 async function publicSettings() {
-  const {apiKey, apiUrl, apiModel, apiProtocol, provider, ...rest} = await settings();
+  const {apiKey, apiUrl, apiModel, apiProtocol, provider, prompt, rules, ...rest} = await settings();
+  const file = f => ({host: f.host, channel: f.channel});
   // Every category needs the API, including giveaway primary/incidental checks.
-  return {...rest, defaultPrompt: DEFAULT_PROMPT, defaultThresholds: {adThreshold: DEFAULTS.adThreshold, cautiousThreshold: DEFAULTS.cautiousThreshold, ratioThreshold: DEFAULTS.ratioThreshold}, configured: !!apiKey.trim()};
+  return {...rest, defaultPrompt: rules.files.prompt.value, defaultThresholds: rules.files.thresholds.value,
+    ruleStatus: {channel: rules.channel, checkedAt: rules.checkedAt, error: rules.error, files: {prompt: file(rules.files.prompt), thresholds: file(rules.files.thresholds)}},
+    configured: !!apiKey.trim()};
 }
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== "local" || !Object.keys(DEFAULTS).some(k => k in changes)) return;
+  if (area !== "local" || ![...Object.keys(DEFAULTS), ...RULE_KEYS].some(k => k in changes)) return;
   if(Object.keys(changes).every(k=>['enhancedList','autoCautionExcluded'].includes(k))){
     const change=changes.enhancedList;
     if(change){
@@ -127,7 +135,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     }
     return;
   }
-  if (["apiKey", "provider", "apiUrl", "apiModel", "apiProtocol", "rulesPrompt"].some(k => k in changes)) {
+  if (["apiKey", "provider", "apiUrl", "apiModel", "apiProtocol", "rulesPrompt", "remoteRules", "ruleChannel"].some(k => k in changes)) {
     revision++; pending.clear();
   } else if (["enabled", "dynamics", "pinned"].some(k => k in changes)) {
     revision++; pending.clear();
@@ -280,6 +288,14 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       return read();
     }
     if (message.type === "settings") return publicSettings();
+    if (message.type === "refreshRules" && popup) {
+      if (message.channel !== undefined) {
+        if (!RULE_CHANNELS.includes(message.channel)) throw new Error("无效的规则通道");
+        await chrome.storage.local.set({ruleChannel: message.channel});
+      }
+      await refreshRules(true);
+      return publicSettings();
+    }
     if (message.type === "detect" && page) {
       const result = {...await detect(message.state)};
       // logDetection applies the author policy against the updated history.

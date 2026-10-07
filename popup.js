@@ -1,8 +1,11 @@
 const $ = id => document.getElementById(id);
 const behavior = ['enabled','dynamics','pinned','foldIncidental','autoCautious'];
+// Defaults come from the background's rule configuration (config/<channel>/ in the repository).
 let defaultPrompt='';
-// Filled from the background; used when a percentage input is invalid.
-let thresholdDefaults={adThreshold:40,cautiousThreshold:90,ratioThreshold:40};
+let ruleDefaults={};
+const RULE_LIMITS={adThreshold:[1,100],cautiousThreshold:[1,100],ratioThreshold:[1,100],ratioWindow:[2,100]};
+const percentKeys=['adThreshold','cautiousThreshold','ratioThreshold'];
+const ruleInput=key=>$(key==='ratioWindow'?'ratioWindow':key+'Number');
 function updateFields() {
   const custom = $('provider').value === 'custom';
   $('customFields').hidden = !custom;
@@ -18,13 +21,8 @@ async function load() {
   const s = await chrome.storage.local.get({apiKey:'',provider:'jev',apiUrl:'',apiModel:'',apiProtocol:'openai'});
   for (const id of Object.keys(s)) if ($(id)) $(id).value = s[id];
   for (const kind of ['ad','giveaway','recruitment','event']) $('fold_'+kind).checked = (response.data.foldCategories || ['ad','giveaway']).includes(kind);
-  thresholdDefaults={...thresholdDefaults,...response.data.defaultThresholds};
-  for(const key of Object.keys(thresholdDefaults)){
-    $(key+'Range').value=$(key+'Number').value=response.data[key]??thresholdDefaults[key];
-  }
-  $('ratioWindow').value=response.data.ratioWindow??10;
-  defaultPrompt=response.data.defaultPrompt||'';
-  $('rulesPrompt').value=response.data.rulesPrompt||defaultPrompt;
+  renderRules(response.data);
+  $('extensionVersion').textContent=chrome.runtime.getManifest?.().version||'';
   await renderLists();
   updateFields();
   $('status').textContent = s.apiKey ? '已配置 API' : '请先设置 API';
@@ -143,27 +141,91 @@ for(const [index,key] of tabKeys.entries()){
 
 $('openRules').onclick=()=>{$('filterOverview').hidden=true;$('filterRules').hidden=false;};
 $('backRules').onclick=()=>{$('filterOverview').hidden=false;$('filterRules').hidden=true;};
-for(const key of ['adThreshold','cautiousThreshold','ratioThreshold']){
- const range=$(key+'Range'),number=$(key+'Number');
- range.addEventListener('input',()=>{number.value=range.value;});
- async function savePercent(source){
-  const raw=Number(source.value),value=source.value.trim()!==''&&Number.isFinite(raw)?Math.min(100,Math.max(1,Math.round(raw))):thresholdDefaults[key];
-  range.value=number.value=value;await chrome.storage.local.set({[key]:value});$('status').textContent='已自动保存';
+function renderRules(data){
+ ruleDefaults={...data.defaultThresholds};
+ for(const key of Object.keys(RULE_LIMITS)){
+  ruleInput(key).value=data[key]??ruleDefaults[key];
+  if(percentKeys.includes(key))$(key+'Range').value=ruleInput(key).value;
+  markDefault(key);
  }
- range.addEventListener('change',()=>savePercent(range).catch(()=>{$('status').textContent='保存失败';}));
- number.addEventListener('input',()=>{if(number.value!==''&&number.validity.valid)range.value=number.value;});
- number.addEventListener('change',()=>savePercent(number).catch(()=>{$('status').textContent='保存失败';}));
- number.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();number.blur();}});
+ defaultPrompt=data.defaultPrompt||'';
+ $('rulesPrompt').value=data.rulesPrompt||defaultPrompt;
+ markPromptDefault();
+ if(data.ruleStatus)renderRuleStatus(data.ruleStatus);
 }
-$('ratioWindow').addEventListener('change',async()=>{const value=Math.min(100,Math.max(2,Math.round(Number($('ratioWindow').value)||10)));$('ratioWindow').value=value;await chrome.storage.local.set({ratioWindow:value});$('status').textContent='已自动保存';});
-// Stored empty while it equals the built-in prompt, so the default can change in updates.
-async function savePrompt(text,done){
+// Magenta marks a value that follows the default; the reset button shows the default on hover.
+function markDefault(key){
+ const value=Number(ruleInput(key).value),isDefault=value===ruleDefaults[key],unit=key==='ratioWindow'?' 条':'%';
+ if(percentKeys.includes(key)){
+  const range=$(key+'Range');
+  range.classList.toggle('is-default',isDefault);
+  range.style.setProperty('--fill',(Number(range.value)-1)/99*100+'%');
+ } else ruleInput(key).classList.toggle('is-default',isDefault);
+ const reset=document.querySelector(`.reset-default[data-key="${key}"]`);
+ reset.setAttribute('aria-disabled',String(isDefault));
+ reset.title=(isDefault?'正在使用默认值 ':'恢复默认值 ')+ruleDefaults[key]+unit;
+}
+function markPromptDefault(){
+ const isDefault=$('rulesPrompt').value.trim()===defaultPrompt;
+ $('rulesPrompt').classList.toggle('is-default',isDefault);
+ $('resetPrompt').setAttribute('aria-disabled',String(isDefault));
+}
+// Stored only while it differs from the default, so the value follows later default changes.
+async function saveRule(key,source){
+ const [min,max]=RULE_LIMITS[key],raw=Number(source.value);
+ const value=source.value.trim()!==''&&Number.isFinite(raw)?Math.min(max,Math.max(min,Math.round(raw))):ruleDefaults[key];
+ ruleInput(key).value=value;
+ if(percentKeys.includes(key))$(key+'Range').value=value;
+ markDefault(key);
+ try{
+  if(value===ruleDefaults[key])await chrome.storage.local.remove(key);else await chrome.storage.local.set({[key]:value});
+  $('status').textContent=value===ruleDefaults[key]?'已使用默认值':'已自动保存';
+ }catch{$('status').textContent='保存失败，请重试';}
+}
+for(const key of Object.keys(RULE_LIMITS)){
+ const input=ruleInput(key);
+ if(percentKeys.includes(key)){
+  const range=$(key+'Range');
+  range.addEventListener('input',()=>{input.value=range.value;markDefault(key);});
+  range.addEventListener('change',()=>saveRule(key,range));
+  input.addEventListener('input',()=>{if(input.value!==''&&input.validity.valid){range.value=input.value;markDefault(key);}});
+ }
+ input.addEventListener('change',()=>saveRule(key,input));
+ input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();input.blur();}});
+ document.querySelector(`.reset-default[data-key="${key}"]`).addEventListener('click',e=>{
+  if(e.currentTarget.getAttribute('aria-disabled')==='true')return;
+  ruleInput(key).value=ruleDefaults[key];saveRule(key,ruleInput(key));
+ });
+}
+async function savePrompt(text){
  const value=text.trim().slice(0,4000),stored=value===defaultPrompt?'':value;
  $('rulesPrompt').value=stored||defaultPrompt;
- try{await chrome.storage.local.set({rulesPrompt:stored});$('status').textContent=stored?done:'已使用内置 Prompt';}catch{$('status').textContent='保存失败，请重试';}
+ markPromptDefault();
+ try{await chrome.storage.local.set({rulesPrompt:stored});$('status').textContent=stored?'已自动保存':'已使用默认 Prompt';}catch{$('status').textContent='保存失败，请重试';}
 }
-$('rulesPrompt').addEventListener('change',()=>savePrompt($('rulesPrompt').value,'已自动保存'));
-$('resetPrompt').addEventListener('click',()=>savePrompt('','已使用内置 Prompt'));
-$('ratioWindow').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('ratioWindow').blur();}});
+$('rulesPrompt').addEventListener('input',markPromptDefault);
+$('rulesPrompt').addEventListener('change',()=>savePrompt($('rulesPrompt').value));
+$('resetPrompt').addEventListener('click',()=>{if($('resetPrompt').getAttribute('aria-disabled')!=='true')savePrompt('');});
+
+function renderRuleStatus(status){
+ $('ruleChannel').value=status.channel;
+ const label=file=>file.host?file.host+(status.channel==='beta'?(file.channel==='beta'?'（内测）':'（正式）'):''):'内置';
+ const prompt=label(status.files.prompt),thresholds=label(status.files.thresholds);
+ $('ruleSource').textContent=prompt===thresholds?prompt:`Prompt：${prompt}；阈值：${thresholds}`;
+ $('ruleChecked').textContent=status.checkedAt?new Date(status.checkedAt).toLocaleString('zh-CN',{hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'尚未更新';
+ $('ruleError').textContent=status.error||'';
+}
+async function refreshRules(message){
+ $('refreshRules').disabled=$('ruleChannel').disabled=true;$('status').textContent='正在更新规则…';
+ try{
+  const response=await chrome.runtime.sendMessage({type:'refreshRules',...message});
+  if(!response?.ok)throw new Error(response?.error||'更新失败');
+  renderRules(response.data);
+  $('status').textContent=response.data.ruleStatus.error?'规则更新失败':'规则已更新';
+ }catch(e){$('status').textContent=e.message;}
+ finally{$('refreshRules').disabled=$('ruleChannel').disabled=false;}
+}
+$('refreshRules').addEventListener('click',()=>refreshRules({}));
+$('ruleChannel').addEventListener('change',()=>refreshRules({channel:$('ruleChannel').value}));
 
 chrome.storage.onChanged?.addListener((changes,area)=>{if(area==='local'&&(changes.enhancedList||changes.whitelist))renderLists().catch(()=>{});});
