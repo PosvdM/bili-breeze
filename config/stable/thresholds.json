@@ -1,5 +1,5 @@
 {
-  "adThreshold": 40,
+  "adThreshold": 50,
   "cautiousThreshold": 90,
   "ratioThreshold": 40,
   "ratioWindow": 10
