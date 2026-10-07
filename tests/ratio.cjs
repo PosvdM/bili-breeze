@@ -3,13 +3,14 @@ const store={apiKey:'test',filterHistory:{}};let listener,onChanged,calls=0,noti
 const context=vm.createContext({crypto:require('node:crypto').webcrypto,TextEncoder,URL,AbortController,setTimeout,clearTimeout,
 fetch:async()=>{calls++;return {ok:true,json:async()=>({answers:{is_ad:{noul:prob},is_event:{noul:event},is_recruitment:{noul:0}}})};},chrome:{storage:{local:{setAccessLevel:async()=>{},get:async d=>({...d,...structuredClone(store)}),set:async v=>{const changes=Object.fromEntries(Object.keys(v).map(k=>[k,{oldValue:structuredClone(store[k]),newValue:structuredClone(v[k])}]));Object.assign(store,structuredClone(v));onChanged?.(changes,'local');}},onChanged:{addListener(f){onChanged=f;}}},runtime:{id:'test',getURL:p=>'chrome-extension://test/'+p,onMessage:{addListener(f){listener=f;}}},tabs:{query:async()=>[{id:1}],sendMessage:async(id,msg)=>notifications.push(msg)}}});
 require('./helpers/background.cjs')(context);
-const seed=(n,ads)=>Object.fromEntries(Array.from({length:n},(_,i)=>['seed'+i,{id:'seed'+i,authorId:'123',type:'dynamic',classificationVersion:vm.runInContext('CLASSIFICATION_VERSION',context),prob:i<ads?.8:.1,kind:i<ads?'ad':'organic',categories:[i<ads?'ad':'organic'],rule:'category',firstSeen:i+1,lastSeen:Date.now()}]));
+const seed=(n,ads)=>Object.fromEntries(Array.from({length:n},(_,i)=>['seed'+i,{id:'seed'+i,authorId:'123',type:'dynamic',classificationVersion:context.cfg.rulesVersion,prob:i<ads?.8:.1,kind:i<ads?'ad':'organic',categories:[i<ads?'ad':'organic'],rule:'category',firstSeen:i+1,lastSeen:Date.now()}]));
 const send=(itemId,text=itemId)=>new Promise(r=>listener({type:'detect',state:{kind:'dynamic',itemId,text,author:'测试UP',authorId:'123'}},{id:'test',url:'https://t.bilibili.com/'},r));
 (async()=>{
- context.sample=seed(9,9);assert.equal(vm.runInContext("authorRatio(sample,'123')",context),null);
- context.sample=seed(10,3);assert.equal(vm.runInContext("authorRatio(sample,'123')",context),null);
- context.sample=seed(10,4);assert.equal(vm.runInContext("authorRatio(sample,'123').ads",context),4);
- context.sample=seed(14,4);assert.equal(vm.runInContext("authorRatio(sample,'123')",context),null,'uses latest ten only');
+ context.cfg=await vm.runInContext('settings()',context);
+ context.sample=seed(9,9);assert.equal(vm.runInContext("authorRatio(sample,'123',cfg)",context),null);
+ context.sample=seed(10,3);assert.equal(vm.runInContext("authorRatio(sample,'123',cfg)",context),null);
+ context.sample=seed(10,4);assert.equal(vm.runInContext("authorRatio(sample,'123',cfg).ads",context),4);
+ context.sample=seed(14,4);assert.equal(vm.runInContext("authorRatio(sample,'123',cfg)",context),null,'uses latest ten only');
  store.filterHistory=seed(9,3);
  let r=await send('tenth');assert.equal(r.data.enhanced,true);assert.equal(r.data.fold,false);assert.equal(r.data.rule,undefined);
  await new Promise(r=>setTimeout(r));assert.equal(JSON.stringify(notifications),JSON.stringify([{type:'authorPolicyChanged',uid:'123'}]),'auto caution notifies tabs once');
