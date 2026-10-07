@@ -15,7 +15,7 @@ const send=text=>call({type:'detect',state:{kind:'dynamic',text,author:'UP',auth
  const settings=await call({type:'settings'},'chrome-extension://test/popup.html');
  assert.equal(settings.data.defaultPrompt,builtin,'popup receives the bundled prompt');
  assert.deepEqual({...settings.data.defaultThresholds},JSON.parse(fs.readFileSync('config/stable/thresholds.json','utf8')),'popup receives the bundled defaults');
- assert.equal(settings.data.adThreshold,40,'unset threshold follows the default');
+ assert.equal(settings.data.adThreshold,settings.data.defaultThresholds.adThreshold,'unset threshold follows the default');
  assert.equal(settings.data.ratioWindow,10);
  assert.equal(settings.data.ruleStatus.files.prompt.host,'','bundled rules when GitHub is unreachable');
  assert.equal('prompt' in settings.data,false,'effective prompt stays in the background');
