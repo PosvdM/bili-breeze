@@ -107,6 +107,10 @@ const fs=require('fs'),assert=require('node:assert/strict'),path=require('path')
  await page.waitForFunction(()=>window.refreshes.some(m=>m.channel==='beta'));
  await page.waitForFunction(()=>document.querySelector('#ruleSource').textContent==='Prompt：raw.githubusercontent.com（内测）；阈值：raw.githubusercontent.com（正式）');
  await page.locator('#ruleChannel').selectOption('stable');await page.waitForFunction(()=>window.refreshes.some(m=>m.channel==='stable'));
+ await page.locator('#rulesPrompt').fill('刷新前的修改');await page.locator('#refreshRules').click();
+ await page.waitForFunction(()=>window.refreshes.length===4);await page.waitForFunction(()=>!document.querySelector('#refreshRules').disabled);
+ assert.equal(await page.locator('#rulesPrompt').inputValue(),'刷新前的修改','an edit is saved before a refresh re-renders');
+ await page.locator('#resetPrompt').click();await page.waitForFunction(()=>JSON.parse(localStorage.settings).rulesPrompt==='');
  await page.locator('#ratioThresholdRange').fill('45');await page.locator('#ratioThresholdRange').dispatchEvent('change');
  await page.waitForFunction(()=>JSON.parse(localStorage.settings).ratioThreshold===45);
  assert.equal(await page.locator('#ratioThresholdNumber').inputValue(),'45');

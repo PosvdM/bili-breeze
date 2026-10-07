@@ -5,6 +5,8 @@ let defaultPrompt='';
 let ruleDefaults={};
 const RULE_LIMITS={adThreshold:[1,100],cautiousThreshold:[1,100],ratioThreshold:[1,100],ratioWindow:[2,100]};
 const percentKeys=['adThreshold','cautiousThreshold','ratioThreshold'];
+// Saves still running when a rule refresh re-renders the inputs; the refresh waits for them.
+let saving=Promise.resolve();
 const ruleInput=key=>$(key==='ratioWindow'?'ratioWindow':key+'Number');
 function updateFields() {
   const custom = $('provider').value === 'custom';
@@ -182,19 +184,20 @@ async function saveRule(key,source){
   $('status').textContent=value===ruleDefaults[key]?'已使用默认值':'已自动保存';
  }catch{$('status').textContent='保存失败，请重试';}
 }
+const track=promise=>{saving=Promise.all([saving,promise]);return promise;};
 for(const key of Object.keys(RULE_LIMITS)){
  const input=ruleInput(key);
  if(percentKeys.includes(key)){
   const range=$(key+'Range');
   range.addEventListener('input',()=>{input.value=range.value;markDefault(key);});
-  range.addEventListener('change',()=>saveRule(key,range));
+  range.addEventListener('change',()=>track(saveRule(key,range)));
   input.addEventListener('input',()=>{if(input.value!==''&&input.validity.valid){range.value=input.value;markDefault(key);}});
  }
- input.addEventListener('change',()=>saveRule(key,input));
+ input.addEventListener('change',()=>track(saveRule(key,input)));
  input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();input.blur();}});
  document.querySelector(`.reset-default[data-key="${key}"]`).addEventListener('click',e=>{
   if(e.currentTarget.getAttribute('aria-disabled')==='true')return;
-  ruleInput(key).value=ruleDefaults[key];saveRule(key,ruleInput(key));
+  ruleInput(key).value=ruleDefaults[key];track(saveRule(key,ruleInput(key)));
  });
 }
 async function savePrompt(text){
@@ -204,8 +207,8 @@ async function savePrompt(text){
  try{await chrome.storage.local.set({rulesPrompt:stored});$('status').textContent=stored?'已自动保存':'已使用默认 Prompt';}catch{$('status').textContent='保存失败，请重试';}
 }
 $('rulesPrompt').addEventListener('input',markPromptDefault);
-$('rulesPrompt').addEventListener('change',()=>savePrompt($('rulesPrompt').value));
-$('resetPrompt').addEventListener('click',()=>{if($('resetPrompt').getAttribute('aria-disabled')!=='true')savePrompt('');});
+$('rulesPrompt').addEventListener('change',()=>track(savePrompt($('rulesPrompt').value)));
+$('resetPrompt').addEventListener('click',()=>{if($('resetPrompt').getAttribute('aria-disabled')!=='true')track(savePrompt(''));});
 
 function renderRuleStatus(status){
  $('ruleChannel').value=status.channel;
@@ -218,6 +221,7 @@ function renderRuleStatus(status){
 async function refreshRules(message){
  $('refreshRules').disabled=$('ruleChannel').disabled=true;$('status').textContent='正在更新规则…';
  try{
+  await saving;
   const response=await chrome.runtime.sendMessage({type:'refreshRules',...message});
   if(!response?.ok)throw new Error(response?.error||'更新失败');
   renderRules(response.data);

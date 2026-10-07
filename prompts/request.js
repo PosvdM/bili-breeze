@@ -1,4 +1,6 @@
 // Shared prompt assembly for Jev and OpenAI-compatible services.
+// Part of the cache key: bump it when the question wording or output fields change.
+const REQUEST_VERSION = 1;
 // config.prompt is the effective prompt: the user's edit, or the default from config/<channel>/prompt.md.
 function buildClassificationRequest(state, config, lottery) {
   const rules = config.prompt;

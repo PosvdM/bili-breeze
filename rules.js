@@ -37,6 +37,8 @@ function loadBundledRules() {
     if (value === null) throw new Error('内置规则文件无效：' + file);
     return [name, value];
   })).then(Object.fromEntries);
+  // Do not keep a failure, so the next call tries again.
+  bundledRules.catch(() => { bundledRules = null; });
   return bundledRules;
 }
 // A file missing from the beta channel falls back to stable. A 404 is an answer from the host,
@@ -76,30 +78,36 @@ async function readRules() {
   return rules;
 }
 let ruleRefresh = null;
+// A routine check joins one in progress. A forced check (channel switch, 立即更新) waits for it
+// and then fetches, because the running check may have read the old channel or skipped fetching.
 function refreshRules(force = false) {
-  ruleRefresh ||= (async () => {
-    const current = await readRules();
-    if (!force && !current.stale) return current;
-    const channels = current.channel === 'beta' ? ['beta', 'stable'] : ['stable'];
-    const names = Object.keys(RULE_FILES);
-    const results = await Promise.all(names.map(name => fetchRule(name, channels)));
-    const files = {};
-    for (const [index, name] of names.entries()) {
-      // Each file updates on its own; a failed file keeps the cached copy, or the bundled one.
-      if (results[index]) files[name] = results[index];
-      else if (current.files[name].host) files[name] = current.files[name];
-    }
-    const failures = results.filter(result => !result).length;
-    const now = Date.now();
-    const {remoteRules = null} = await chrome.storage.local.get({remoteRules: null});
-    if (JSON.stringify(remoteRules || {}) !== JSON.stringify(files)) await chrome.storage.local.set({remoteRules: files});
-    await chrome.storage.local.set({ruleCheck: {channel: current.channel, checkedAt: failures ? current.checkedAt : now, attemptedAt: now,
-      error: !failures ? '' : (failures === names.length ? '无法获取远程规则' : '部分规则无法获取') + '，正在使用缓存或内置版本'}});
-    const next = await readRules();
-    await dropDefaultOverrides(next);
-    return next;
-  })().finally(() => { ruleRefresh = null; });
-  return ruleRefresh;
+  if (ruleRefresh && !force) return ruleRefresh;
+  const run = (ruleRefresh || Promise.resolve()).catch(() => {}).then(() => checkRules(force));
+  ruleRefresh = run;
+  run.finally(() => { if (ruleRefresh === run) ruleRefresh = null; }).catch(() => {});
+  return run;
+}
+async function checkRules(force) {
+  const current = await readRules();
+  if (!force && !current.stale) return current;
+  const channels = current.channel === 'beta' ? ['beta', 'stable'] : ['stable'];
+  const names = Object.keys(RULE_FILES);
+  const results = await Promise.all(names.map(name => fetchRule(name, channels)));
+  const files = {};
+  for (const [index, name] of names.entries()) {
+    // Each file updates on its own; a failed file keeps the cached copy, or the bundled one.
+    if (results[index]) files[name] = results[index];
+    else if (current.files[name].host) files[name] = current.files[name];
+  }
+  const failures = results.filter(result => !result).length;
+  const now = Date.now();
+  const {remoteRules = null} = await chrome.storage.local.get({remoteRules: null});
+  if (JSON.stringify(remoteRules || {}) !== JSON.stringify(files)) await chrome.storage.local.set({remoteRules: files});
+  await chrome.storage.local.set({ruleCheck: {channel: current.channel, checkedAt: failures ? current.checkedAt : now, attemptedAt: now,
+    error: !failures ? '' : (failures === names.length ? '无法获取远程规则' : '部分规则无法获取') + '，正在使用缓存或内置版本'}});
+  const next = await readRules();
+  await dropDefaultOverrides(next);
+  return next;
 }
 // A stored value that equals the current default follows future defaults again.
 async function dropDefaultOverrides(rules) {

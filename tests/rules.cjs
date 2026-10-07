@@ -50,6 +50,14 @@ const bundledPrompt=fs.readFileSync('config/stable/prompt.md','utf8').trim();
  assert.equal(r.data.defaultThresholds.adThreshold,60,'stable cache still valid');
  assert.equal((await popup({type:'refreshRules',channel:'nightly'})).ok,false,'unknown channel rejected');
 
+ // A forced check started during a routine one still fetches the newly selected channel.
+ down=new Set();remote={'stable/prompt.md':'正式规则','stable/thresholds.json':thresholds(),'beta/prompt.md':'内测规则'};
+ requests=[];const routine=vm.runInContext('refreshRules()',context);
+ store.ruleChannel='beta';const forced=await vm.runInContext('refreshRules(true)',context);await routine;
+ assert.equal(forced.files.prompt.value,'内测规则','forced check is not merged into a routine one');
+ assert(requests.some(u=>u.includes('/beta/')));
+ store.ruleChannel='stable';await vm.runInContext('refreshRules(true)',context);
+
  // Overrides equal to a new default follow future defaults again.
  down=new Set();remote={'stable/prompt.md':'用户规则','stable/thresholds.json':thresholds({adThreshold:70,ratioWindow:12})};
  Object.assign(store,{adThreshold:70,ratioWindow:20,rulesPrompt:'用户规则'});

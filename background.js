@@ -78,6 +78,13 @@ const waiting = [];
 // Keys stay in trusted extension contexts, never in page/content-script storage.
 const storageReady = chrome.storage.local.setAccessLevel({accessLevel: "TRUSTED_CONTEXTS"});
 storageReady.then(() => refreshRules()).catch(() => {});
+// A worker kept alive by page activity does not restart, so detection also triggers the daily check.
+let lastRuleCheck = Date.now();
+function checkRulesLater() {
+  if (Date.now() - lastRuleCheck < RULE_RETRY) return;
+  lastRuleCheck = Date.now();
+  refreshRules().catch(() => {});
+}
 const cacheReady = storageReady.then(async () => {
   const {resultCache = {}} = await chrome.storage.local.get({resultCache: {}});
   for (const [key, entry] of Object.entries(resultCache)) {
@@ -93,14 +100,23 @@ function validEntry(entry) {
 async function cacheKey(state, s) {
   // Store only a digest, result and expiry, never the source text or API key.
   const service = s.provider === "custom" ? [s.apiUrl, s.apiProtocol, s.apiModel] : [API, "jev", "jev-latest"];
-  // A different effective prompt, edited or default, invalidates old decisions.
-  const parts = [service, state, s.prompt];
+  // A different effective prompt, edited or default, or request format invalidates old decisions.
+  const parts = [REQUEST_VERSION, service, state, s.prompt];
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(parts)));
   return Array.from(new Uint8Array(bytes), n => n.toString(16).padStart(2, "0")).join("");
 }
 async function saveCache() {
   cacheWrites = cacheWrites.catch(() => {}).then(() => chrome.storage.local.set({resultCache: Object.fromEntries(cache)}));
   await cacheWrites.catch(() => {});
+}
+// Identifies the prompt behind a history record, so auto-caution samples only use current rules.
+let versionCache={prompt:null,version:""};
+async function promptVersion(prompt){
+ if(versionCache.prompt!==prompt){
+  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(prompt));
+  versionCache={prompt,version:Array.from(new Uint8Array(digest).subarray(0,8),n=>n.toString(16).padStart(2,"0")).join("")};
+ }
+ return versionCache.version;
 }
 async function settings() {
  await storageReady;
@@ -110,9 +126,7 @@ async function settings() {
  for(const [key,[min,max]] of Object.entries(THRESHOLD_RANGES))s[key]=s[key]!==null&&Number.isFinite(Number(s[key]))?Math.min(max,Math.max(min,Math.round(Number(s[key])))):defaults[key];
  s.rulesPrompt=normalizePrompt(s.rulesPrompt,rules.files.prompt.value);
  s.prompt=s.rulesPrompt||rules.files.prompt.value;
- // Identifies the prompt behind a history record, so auto-caution samples only use current rules.
- const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s.prompt));
- s.rulesVersion=Array.from(new Uint8Array(digest).subarray(0,8),n=>n.toString(16).padStart(2,"0")).join("");
+ s.rulesVersion=await promptVersion(s.prompt);
  s.rules=rules;
  return s;
 }
@@ -297,6 +311,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       return publicSettings();
     }
     if (message.type === "detect" && page) {
+      checkRulesLater();
       const result = {...await detect(message.state)};
       // logDetection applies the author policy against the updated history.
       await logDetection(message.state, result);
